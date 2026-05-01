@@ -21,15 +21,20 @@
         }
 
         .preview-box { position: relative; user-select: none; touch-action: none; cursor: crosshair; }
+        
         .draggable-line { 
             stroke: #ff4500; 
             stroke-width: 2; 
-            cursor: ns-resize; 
-            transition: stroke-width 0.2s; 
+            transition: stroke-width 0.2s, stroke 0.2s; 
             filter: drop-shadow(0 2px 4px rgba(255,255,255,0.9)); 
         }
-        .draggable-line-v { cursor: ew-resize; }
-        .draggable-line:hover { stroke-width: 4; stroke: #ff0000; }
+        
+        /* 讓群組 hover 或手機 active (觸摸) 時，顯示粗的紅線 */
+        g:hover .draggable-line,
+        g:active .draggable-line { 
+            stroke-width: 4; 
+            stroke: #ff0000; 
+        }
 
         .grid-bg { 
             background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%), 
@@ -128,16 +133,31 @@
                 reader.readAsDataURL(file);
             };
 
-            const handleMouseMove = (e, type, index) => {
-                if (e.buttons !== 1) return;
+            // 合併處理滑鼠與觸控拖曳事件
+            const handleDrag = (e, type, index) => {
+                let clientX, clientY;
+
+                // 判斷是否為觸控事件
+                if (e.type.includes('touch')) {
+                    if (!e.touches || e.touches.length === 0) return;
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    // 滑鼠事件：必須按著左鍵才能拖曳
+                    if (e.buttons !== 1) return;
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
                 const rect = containerRef.current.getBoundingClientRect();
+                
                 if (type === 'v') {
-                    const newX = ((e.clientX - rect.left) / rect.width) * 100;
+                    const newX = ((clientX - rect.left) / rect.width) * 100;
                     const newV = [...vLines];
                     newV[index] = Math.max(0, Math.min(100, newX));
                     setVLines(newV.sort((a,b) => a-b));
                 } else {
-                    const newY = ((e.clientY - rect.top) / rect.height) * 100;
+                    const newY = ((clientY - rect.top) / rect.height) * 100;
                     const newH = [...hLines];
                     newH[index] = Math.max(0, Math.min(100, newY));
                     setHLines(newH.sort((a,b) => a-b));
@@ -243,10 +263,28 @@
                                                 <img ref={imgRef} src={imgSrc} className="w-full block" alt="Source" />
                                                 <svg className="absolute inset-0 w-full h-full pointer-events-none filter drop-shadow-lg">
                                                     {vLines.map((pos, i) => (
-                                                        <line key={`v-${i}`} x1={`${pos}%`} y1="0" x2={`${pos}%`} y2="100%" className="draggable-line draggable-line-v pointer-events-auto" onMouseMove={(e) => handleMouseMove(e, 'v', i)} />
+                                                        <g key={`v-${i}`}>
+                                                            {/* 畫面上看得到的細線 */}
+                                                            <line x1={`${pos}%`} y1="0" x2={`${pos}%`} y2="100%" className="draggable-line pointer-events-none" />
+                                                            {/* 給手機點擊/拖曳用的透明粗線，提升手感 */}
+                                                            <line x1={`${pos}%`} y1="0" x2={`${pos}%`} y2="100%" 
+                                                                  className="pointer-events-auto cursor-ew-resize" 
+                                                                  stroke="transparent" strokeWidth="30" 
+                                                                  onMouseMove={(e) => handleDrag(e, 'v', i)}
+                                                                  onTouchMove={(e) => handleDrag(e, 'v', i)} />
+                                                        </g>
                                                     ))}
                                                     {hLines.map((pos, i) => (
-                                                        <line key={`h-${i}`} x1="0" y1={`${pos}%`} x2="100%" y2={`${pos}%`} className="draggable-line pointer-events-auto" onMouseMove={(e) => handleMouseMove(e, 'h', i)} />
+                                                        <g key={`h-${i}`}>
+                                                            {/* 畫面上看得到的細線 */}
+                                                            <line x1="0" y1={`${pos}%`} x2="100%" y2={`${pos}%`} className="draggable-line pointer-events-none" />
+                                                            {/* 給手機點擊/拖曳用的透明粗線，提升手感 */}
+                                                            <line x1="0" y1={`${pos}%`} x2="100%" y2={`${pos}%`} 
+                                                                  className="pointer-events-auto cursor-ns-resize" 
+                                                                  stroke="transparent" strokeWidth="30" 
+                                                                  onMouseMove={(e) => handleDrag(e, 'h', i)}
+                                                                  onTouchMove={(e) => handleDrag(e, 'h', i)} />
+                                                        </g>
                                                     ))}
                                                 </svg>
                                             </div>
